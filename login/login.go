@@ -4,90 +4,82 @@ import (
 	"fmt"
 	"gauth/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/hlandau/passlib"
 )
 
 type baseRequestClass struct {
-	Email    string `json:"email" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Username       string `json:"username" binding:"required"`
+	Password       string `json:"password" binding:"required"`
+	storedPassword string
 }
 
-type UserService interface {
-	GetPassword(email string) string
-	SetPassword(email, newPassword string) error
-	SetActive(email string, isActive bool) error
-}
-
-func (svc LoginService) login(email, password string) bool {
-	return svc.user.GetPassword(email) == password
-}
-
-func (svc LoginService) BasicLogin(context *gin.Context) {
-	//TODO: return JWT
-	request := struct {
-		baseRequestClass
-	}{}
-
-	err := context.Bind(&request)
+func login(credentials baseRequestClass) (newHash string, ok bool) {
+	newHash, err := passlib.Verify(credentials.Password, credentials.storedPassword)
 	if err != nil {
-		context.JSON(400, &utils.Message{Message: "Missing parameters or malformed request"})
-		return
+		return "", false
 	}
-
-	if svc.login(request.Email, request.Password) {
-		context.JSON(200, &utils.Message{Message: "Authenticated!"})
-		return
-	}
-	context.JSON(403, &utils.Message{Message: "Password mismatch!!"})
+	return newHash, true
 }
 
-func (svc LoginService) SetPassword(context *gin.Context) {
-	request := struct {
-		baseRequestClass
-		NewPassword string `json:"new_password" binding:"required"`
-	}{}
+func (svc LoginService) BasicLogin(c *gin.Context) {
+	request := baseRequestClass{}
 
-	err := context.Bind(&request)
+	err := c.Bind(&request)
 	if err != nil {
-		context.JSON(400, &utils.Message{Message: fmt.Sprintf("Missing parameters or malformed request: %s", err.Error())})
+		c.JSON(400, &utils.Message{Message: "Missing parameters or malformed request"})
 		return
 	}
 
-	if svc.login(request.Email, request.Password) {
-		err := svc.user.SetPassword(request.Email, request.NewPassword)
+	password, data := svc.user.Get(request.Username)
+	request.storedPassword = password
+
+	if _, ok := login(request); ok {
+		jwtToken, err := svc.jwt.generateToken(JWTCustomData{Data: data})
 		if err != nil {
-			context.JSON(400, &utils.Message{fmt.Sprintf("error attempting to set new password: %s", err.Error())})
+			c.JSON(500, &utils.Message{Message: fmt.Sprintf("Failed generating JWT token: %s", err.Error())})
+			return
 		}
+		c.SetCookie("session", jwtToken, 60*60*24, "", "", false, true)
+		c.JSON(200, &utils.Message{Message: "Authenticated!"})
 	} else {
-		context.JSON(403, &utils.Message{"unauthorized"})
+		c.JSON(403, &utils.Message{Message: "Password mismatch!!"})
 	}
 }
 
-func (svc LoginService) SetActive(context *gin.Context) {
-	request := struct {
-		baseRequestClass
-		IsActive string `json:"is_active" binding:"required"`
-	}{}
+func (svc LoginService) GetRolesForUser(c *gin.Context) {
+	//TODO: permission check
+	userIdentifier := c.Param("userIdentifier")
+	roles := svc.role.GetForUser(userIdentifier)
+	c.JSON(200, roles)
+}
 
-	err := context.Bind(&request)
-	if err != nil {
-		context.JSON(400, &utils.Message{Message: "Missing parameters or malformed request"})
-		return
-	}
-
-	if svc.login(request.Email, request.IsActive) {
-		err := svc.user.SetActive(request.Email, request.IsActive == "t")
-		if err != nil {
-			context.JSON(400, &utils.Message{fmt.Sprintf("error attempting to set active state: %s", err.Error())})
-		}
-	} else {
-		context.JSON(403, &utils.Message{"unauthorized"})
-	}
+func (svc LoginService) GetRoles(c *gin.Context) {
+	//	TODO: admin check
+	roles := svc.role.GetAll()
+	c.JSON(200, roles)
 }
 
 type LoginService struct {
-	user UserService
+	user User
+	role Roles
+	jwt  JWTService
 }
 
-func NewLoginService(service *UserService) LoginService {
-	return LoginService{*service}
+func NewLoginService(userService User, roleService Roles, jwt JWTService) LoginService {
+	_ = passlib.UseDefaults("20180601") // Argon2I
+	return LoginService{userService, roleService, jwt}
+}
+
+type User interface {
+	Get(identifier string) (password string, userData map[string]interface{})
+}
+
+type Roles interface {
+	GetForUser(userIdentifier string) []string
+	GetAll() []string
+}
+
+type Permissions interface {
+	GetForRole(roleIdentifier string) []string
+	GetAll() []string
 }

@@ -1,66 +1,39 @@
 package gauth
 
 import (
-	"context"
 	"fmt"
-	"gauth/login"
+	"gauth/internal"
 	"github.com/jackc/pgx/v4"
+	"golang.org/x/net/context"
 	"log"
+	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 )
 
-type UserService struct {
-	connection *pgx.Conn
-}
-
-func (u UserService) GetPassword(email string) (password string) {
-	err := u.connection.QueryRow(
-		context.Background(),
-		"select password from users where email = $1",
-		email,
-	).Scan(&password)
-	if err != nil {
-		fmt.Errorf("error retrieving password for %s: %s", email, err.Error())
-	}
-	return
-}
-
-func (u UserService) SetPassword(email, newPassword string) error {
-	res, err := u.connection.Exec(context.Background(),
-		"update users set password = $1 where email = $2",
-		newPassword,
-		email,
-	)
-	if err != nil {
-		return err
-	}
-	log.Println(res.String())
-	return nil
-}
-
-func (u UserService) SetActive(email string, isActive bool) error {
-	_, err := u.connection.Query(context.Background(),
-		"update users set password = ? where email = ?",
-		[]interface{}{isActive, email},
-	)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func NewUserService(connection *pgx.Conn) UserService {
-	return UserService{connection: connection}
-}
-
-func TestNew(t *testing.T) {
+func TestMain(m *testing.M) {
+	//TODO: Mock DB
 	connection, err := pgx.Connect(context.Background(), "postgres://postgres:1234@localhost:5432/test_auth")
 	if err != nil {
 		log.Fatal("Could not connect to DB")
 	}
 	defer connection.Close(context.Background())
-	var userService login.UserService = NewUserService(connection)
+	userService := internal.NewUserService(connection)
+	testServer = httptest.NewServer(gauthServer)
+	//gauthServer := GetAuthGroup(testServer, userService, )
+	defer testServer.Close()
+	os.Exit(m.Run())
+}
 
-	server := New(&userService)
-	_ = server.Run()
+func TestNew(t *testing.T) {
+	client := NewClient()
+
+	body := strings.NewReader(`{"email":"t1@example.com", "password":"1234"}`)
+	_, _ = client.Post(
+		fmt.Sprintf("%s/%s", testServer.URL, "login/basic"),
+		"application/json",
+		body,
+	)
+	_, _ = client.Get(fmt.Sprintf("%s/%s", testServer.URL, "alive"))
 }
