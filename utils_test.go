@@ -1,6 +1,7 @@
 package gauth
 
 import (
+	"github.com/gin-gonic/gin"
 	"golang.org/x/net/publicsuffix"
 	"net/http"
 	"net/http/cookiejar"
@@ -8,6 +9,8 @@ import (
 )
 
 var testServer *httptest.Server
+var testRecorder *httptest.ResponseRecorder
+var testContext *gin.Context
 
 func NewClient() *http.Client {
 	client := testServer.Client()

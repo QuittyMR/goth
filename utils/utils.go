@@ -5,13 +5,8 @@ import (
 	"os"
 )
 
-//TODO: Add DB check, omit from json
-type Message struct {
-	Message	string `json:"message"`
-}
-
 func Alive(context *gin.Context) {
-	context.JSON(200, &Message{Message: "Alive!"})
+	context.JSON(200, gin.H{"message": "Alive!"})
 }
 
 func GetEnvOrDefault(key string, defaultValue string) string {
@@ -23,6 +18,27 @@ func GetEnvOrDefault(key string, defaultValue string) string {
 
 var GetEnv = os.Getenv
 
-func NotImplemented(context *gin.Context) {
-	context.JSON(500, &Message{Message: "Not implemented"})
+type Set map[string]bool
+
+func (set Set) Add(items ...string) {
+	for _, item := range items {
+		set[item] = true
+	}
+}
+
+func (set Set) Delete(item string) {
+	delete(set, item)
+}
+
+func (set Set) Has(item string) bool {
+	_, ok := set[item]
+	return ok
+}
+
+func (set Set) AsList() []string {
+	keys := make([]string, 0, len(set))
+	for key, _ := range set {
+		keys = append(keys, key)
+	}
+	return keys
 }
