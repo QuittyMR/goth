@@ -1,13 +1,13 @@
 package standalone
 
 import (
-	"gauth"
-	"gauth/utils"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4"
 	"github.com/joho/godotenv"
 	"golang.org/x/net/context"
+	"goth"
+	"goth/utils"
 	"log"
 )
 
@@ -45,17 +45,17 @@ func main() {
 	}
 	defer connection.Close(context.Background())
 
-	jwtService, _ := gauth.NewJWTProvider(true)
-	authService := gauth.NewAuthService(
+	jwtService, _ := goth.NewJWTProvider(true)
+	authService := goth.NewAuthService(
 		NewPostgresUserService(connection),
 		NewPostgresAuthorizationService(connection),
 		jwtService,
 	)
-	_ = gauth.GetAuthGroup(
+	_ = goth.GetAuthGroup(
 		server,
 		authService,
 	)
-	server.Use(gauth.GetJWTMiddleware(authService))
+	server.Use(goth.GetJWTMiddleware(authService))
 
 	err = server.Run()
 	if err != nil {

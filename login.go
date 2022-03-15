@@ -1,4 +1,4 @@
-package gauth
+package goth
 
 import (
 	"fmt"

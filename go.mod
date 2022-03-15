@@ -1,4 +1,4 @@
-module gauth
+module goth
 
 go 1.17
 

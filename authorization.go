@@ -1,8 +1,8 @@
-package gauth
+package goth
 
 import (
-	"gauth/utils"
 	"github.com/gin-gonic/gin"
+	"goth/utils"
 	"log"
 	"sync"
 )

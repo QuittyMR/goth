@@ -3,9 +3,9 @@ package standalone
 import (
 	"encoding/json"
 	"fmt"
-	"gauth"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/net/publicsuffix"
+	"goth"
 	"math/rand"
 	"net/http"
 	"net/http/cookiejar"
@@ -19,15 +19,15 @@ var testServer *httptest.Server
 var testRecorder *httptest.ResponseRecorder
 var testContext *gin.Context
 
-type GauthTestClient struct {
+type GothTestClient struct {
 	*http.Client
 	url *url.URL
 	t   *testing.T
 }
 
-func NewClient(t *testing.T) GauthTestClient {
+func NewClient(t *testing.T) GothTestClient {
 	uri, _ := url.ParseRequestURI(testServer.URL)
-	client := GauthTestClient{testServer.Client(), uri, t}
+	client := GothTestClient{testServer.Client(), uri, t}
 	client.Jar = newCookieJar()
 	return client
 }
@@ -37,11 +37,11 @@ func newCookieJar() *cookiejar.Jar {
 	return cookieJar
 }
 
-func (client GauthTestClient) Url(path string) string {
+func (client GothTestClient) Url(path string) string {
 	return fmt.Sprintf("%s/auth/%s", client.url, path)
 }
 
-func (client GauthTestClient) GetToken() gauth.JWTCustomData {
+func (client GothTestClient) GetToken() goth.JWTCustomData {
 	cookies := client.Jar.Cookies(client.url)
 	if cookies == nil {
 		client.t.Fatal("cannot find cookies")

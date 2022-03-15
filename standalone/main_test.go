@@ -2,11 +2,11 @@ package standalone
 
 import (
 	"fmt"
-	"gauth"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
+	"goth"
 	"log"
 	"net/http/httptest"
 	"os"
@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-var jwtService gauth.JWTProvider
+var jwtService goth.JWTProvider
 
 func TestMain(m *testing.M) {
 	//TODO: Mock DB
@@ -25,20 +25,20 @@ func TestMain(m *testing.M) {
 	}
 	defer connection.Close(context.Background())
 
-	jwtService, err = gauth.NewJWTProvider(true)
+	jwtService, err = goth.NewJWTProvider(true)
 	if err != nil {
 		panic(err)
 	}
 	testRecorder = httptest.NewRecorder()
 	ginServer := gin.Default()
-	authService := gauth.NewAuthService(
+	authService := goth.NewAuthService(
 		NewPostgresUserService(connection),
 		NewPostgresAuthorizationService(connection),
 		jwtService,
 	)
 
 	ginServer.Use(authService.JWTMiddlware)
-	_ = gauth.GetAuthGroup(
+	_ = goth.GetAuthGroup(
 		ginServer,
 		authService,
 	)

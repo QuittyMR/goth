@@ -1,1 +1,1 @@
-package gauth
+package goth

@@ -1,12 +1,12 @@
-package gauth
+package goth
 
 import (
 	"crypto/rsa"
 	"fmt"
-	"gauth/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
 	"github.com/golang-jwt/jwt/v4"
+	"goth/utils"
 	"log"
 	"os"
 	"strconv"
