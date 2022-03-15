@@ -25,7 +25,7 @@ func TestMain(m *testing.M) {
 	}
 	defer connection.Close(context.Background())
 
-	jwtService, err = gauth.NewJWTProvider()
+	jwtService, err = gauth.NewJWTProvider(true)
 	if err != nil {
 		panic(err)
 	}
@@ -44,7 +44,6 @@ func TestMain(m *testing.M) {
 	)
 
 	testServer = httptest.NewTLSServer(ginServer)
-	testClient = NewClient()
 	defer testServer.Close()
 
 	os.Exit(m.Run())
@@ -62,11 +61,12 @@ func TestAuthService_BasicLogin(t *testing.T) {
 		{"incorrect password", "t1@example.com", "12345", 403},
 		{"missing user", "wrong@example.com", "1234", 403},
 	}
+	testClient := NewClient(t)
 	t.Parallel()
 	for _, test := range tests {
 		t.Run(test.testName, func(t *testing.T) {
 			response, err := testClient.Post(
-				fmt.Sprintf("%s/auth/login/basic", testClient.url),
+				testClient.Url("login/basic"),
 				"application/json",
 				strings.NewReader(fmt.Sprintf(`{"username":"%s", "password":"%s"}`, test.username, test.password)),
 			)
@@ -75,17 +75,33 @@ func TestAuthService_BasicLogin(t *testing.T) {
 			}
 			assert.EqualValues(t, test.expected, response.StatusCode)
 			if response.StatusCode == 200 && test.expected == 200 {
-				token, err := testClient.GetToken()
-				if err != nil {
-					t.Fatal("Error getting data from token:", err.Error())
-				}
-				assert.Equal(t, test.username, token.Username)
+				token := testClient.GetToken()
+				assert.Equal(t, test.username, token.Username, "Username should appear in token")
 			}
 		})
 	}
 
 }
 
-//func TestTokenRenewal(t *testing.T) {
-//	godotenv.Write()
-//}
+func TestTokenRenewal(t *testing.T) {
+	testClient := NewClient(t)
+	response, err := testClient.Post(
+		testClient.Url("login/basic"),
+		"application/json",
+		strings.NewReader(`{"username":"t1@example.com", "password":"1234"}`),
+	)
+	if err != nil {
+		t.Fatal("Error getting response from server: ", err.Error())
+	}
+	assert.EqualValues(t, 200, response.StatusCode)
+	originalToken := response.Cookies()[0].Value
+	response, err = testClient.Post(testClient.Url("login/refresh"), "", nil)
+	if err != nil {
+		t.Fatal("Error getting response from server: ", err.Error())
+	}
+	assert.EqualValues(t, 204, response.StatusCode)
+
+	assert.NotEqual(t, originalToken, response.Cookies()[0].Value, "server should return a different session token")
+	assert.NotEqual(t, originalToken, testClient.Jar.Cookies(testClient.url)[0].Value, "client cookiejar should store a different session token")
+
+}

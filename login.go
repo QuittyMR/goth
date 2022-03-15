@@ -50,6 +50,19 @@ func (svc AuthService) BasicLogin(c *gin.Context) {
 	}
 }
 
+func (svc AuthService) RefreshToken(c *gin.Context) {
+	cookieData, err := c.Cookie("session")
+	if err != nil {
+		c.AbortWithStatusJSON(403, gin.H{"message": "unauthorized"})
+	}
+	token, err := svc.jwt.ReadToken(cookieData)
+	if err != nil {
+		c.AbortWithStatusJSON(403, gin.H{"message": "unauthorized"})
+	}
+	svc.refresh(c, token)
+	c.Status(204)
+}
+
 func (svc AuthService) authenticate(c *gin.Context, username string, publicData map[string]interface{}) {
 	roles := svc.authorization.GetRolesForUsers(username)
 	jwtToken, err := svc.jwt.generateToken(JWTCustomData{Username: username, Data: publicData, Roles: roles})
@@ -90,12 +103,7 @@ func (svc AuthService) JWTMiddlware(context *gin.Context) {
 	token, err := svc.jwt.ReadToken(cookie)
 	if err != nil {
 		if err.(*jwt.ValidationError).Is(jwt.ErrTokenExpired) {
-			log.Print("[INFO] Refreshing token for ", token.Username)
-			username, _, publicData, err := svc.user.Get(token.Username)
-			if err != nil {
-				context.AbortWithStatusJSON(403, gin.H{"reason": "Unauthorized"})
-			}
-			svc.authenticate(context, username, publicData)
+			svc.refresh(context, token)
 		} else {
 			log.Printf("Invalid token received: %s", err.Error())
 		}
@@ -105,6 +113,15 @@ func (svc AuthService) JWTMiddlware(context *gin.Context) {
 		context.Set(SESSION_USERNAME_KEY, token.Username)
 	}
 	context.Next()
+}
+
+func (svc AuthService) refresh(context *gin.Context, token JWTCustomData) {
+	log.Print("[INFO] Refreshing token for ", token.Username)
+	username, _, publicData, err := svc.user.Get(token.Username)
+	if err != nil {
+		context.AbortWithStatusJSON(403, gin.H{"reason": "Unauthorized"})
+	}
+	svc.authenticate(context, username, publicData)
 }
 
 func NewAuthService(userService UserService, authorizationService AuthorizationService, jwt JWTProvider) AuthService {

@@ -45,7 +45,7 @@ func main() {
 	}
 	defer connection.Close(context.Background())
 
-	jwtService, _ := gauth.NewJWTProvider()
+	jwtService, _ := gauth.NewJWTProvider(true)
 	authService := gauth.NewAuthService(
 		NewPostgresUserService(connection),
 		NewPostgresAuthorizationService(connection),

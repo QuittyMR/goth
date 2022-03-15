@@ -16,6 +16,7 @@ func GetAuthGroup(server *gin.Engine, service AuthService) *gin.RouterGroup {
 
 	loginGroup := authGroup.Group("login")
 	loginGroup.POST("basic", service.BasicLogin)
+	loginGroup.POST("refresh", service.RefreshToken)
 
 	return authGroup
 }

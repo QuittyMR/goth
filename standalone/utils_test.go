@@ -12,21 +12,22 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"testing"
 )
 
 var testServer *httptest.Server
-var testClient GauthTestClient
 var testRecorder *httptest.ResponseRecorder
 var testContext *gin.Context
 
 type GauthTestClient struct {
 	*http.Client
 	url *url.URL
+	t   *testing.T
 }
 
-func NewClient() GauthTestClient {
+func NewClient(t *testing.T) GauthTestClient {
 	uri, _ := url.ParseRequestURI(testServer.URL)
-	client := GauthTestClient{testServer.Client(), uri}
+	client := GauthTestClient{testServer.Client(), uri, t}
 	client.Jar = newCookieJar()
 	return client
 }
@@ -36,13 +37,20 @@ func newCookieJar() *cookiejar.Jar {
 	return cookieJar
 }
 
-func (client GauthTestClient) GetToken() (token gauth.JWTCustomData, err error) {
+func (client GauthTestClient) Url(path string) string {
+	return fmt.Sprintf("%s/auth/%s", client.url, path)
+}
+
+func (client GauthTestClient) GetToken() gauth.JWTCustomData {
 	cookies := client.Jar.Cookies(client.url)
 	if cookies == nil {
-		err = fmt.Errorf("cannot find cookies")
+		client.t.Fatal("cannot find cookies")
 	}
-	token, err = jwtService.ReadToken(cookies[0].Value)
-	return
+	token, err := jwtService.ReadToken(cookies[0].Value)
+	if err != nil {
+		client.t.Fatal("error getting data from token:", err.Error())
+	}
+	return token
 }
 
 func GetJSONBody(response *http.Response) (mapping map[string]interface{}, err error) {
