@@ -32,7 +32,7 @@ require (
 require (
 	github.com/gin-contrib/cors v1.3.1
 	github.com/go-playground/assert/v2 v2.0.1
-	github.com/gofrs/uuid v4.2.0+incompatible // indirect
+	github.com/gofrs/uuid v4.2.0+incompatible
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgconn v1.11.0 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
